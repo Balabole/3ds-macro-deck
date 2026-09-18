@@ -12,11 +12,17 @@ jobs:
 
       - name: Install 3DS tools and libraries
         run: |
-          sudo dkp-pacman -Syu --noconfirm 3ds-dev
+          dkp-pacman -Syu --noconfirm 3ds-dev
 
       - name: Compile project
         run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITARM=$DEVKITPRO/devkitARM
+          export PATH=$DEVKITPRO/tools/bin:$PATH
           make
+        env:
+          DEVKITPRO: /opt/devkitpro
+          DEVKITARM: /opt/devkitpro/devkitARM
 
       - name: Upload 3DSX build
         uses: actions/upload-artifact@v4
