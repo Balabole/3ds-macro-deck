@@ -1,61 +1,93 @@
 #---------------------------------------------------------------------------------
-# 3DS MACRO DECK ULTRA v4.0 - devkitPro Standard Makefile
-#---------------------------------------------------------------------------------
 .SUFFIXES:
+#---------------------------------------------------------------------------------
+
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro")
+endif
 
 ifeq ($(strip $(DEVKITARM)),)
-$(error "Пожалуйста, установите devkitARM и настройте переменную окружения DEVKITARM")
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
 endif
 
 include $(DEVKITARM)/3ds_rules
 
-TARGET      := 3DSMacroDeck
-BUILD       := build
-SOURCES     := source
-INCLUDES    := include
-ROMFS       := 
+# TARGET IS THE NAME OF THE OUTPUT
+# BUILD IS THE DIRECTORY TO STORE OBJECT FILES
+# SOURCES IS A LIST OF DIRECTORIES CONTAINING SOURCE CODE
+# INCLUDES IS A LIST OF DIRECTORIES CONTAINING HEADER FILES
+#---------------------------------------------------------------------------------
+TARGET		:=	3DSMacroDeck
+BUILD		:=	build
+SOURCES		:=	source
+DATA		:=	data
+INCLUDES	:=	include
 
-ARCH        := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
+# ARCH & FLAGS
+#---------------------------------------------------------------------------------
+ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS      := -g -Wall -O3 -mword-relocations \
-               -fomit-frame-pointer -ffast-math \
-               $(ARCH)
+CFLAGS	:=	-g -Wall -O2 -mword-relocations \
+			-fomit-frame-pointer -ffunction-sections \
+			$(ARCH)
 
-CFLAGS      += $(INCLUDE) -DARM11 -D_3DS
+CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
 
-CXXFLAGS    := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
 
-ASFLAGS     := -g $(ARCH)
+ASFLAGS	:=	-g $(ARCH)
+LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS        := -lcitro2d -lcitro3d -lctru -lm
+LIBS	:= -lctru -lm
 
-LIBDIRS     := $(CTRULIB)
+# INTERNALS
+#---------------------------------------------------------------------------------
+ifneq ($(BUILD),$(notdir $(CURDIR)))
 
-export OUTPUT   := $(CURDIR)/$(TARGET)
-export VPATH    := $(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
-export DEPSDIR  := $(CURDIR)/$(BUILD)
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export TOPDIR	:=	$(CURDIR)
 
-CFILES      := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES    := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
-SFILES      := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
-export OFILES := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
-.PHONY: clean all
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 
-all: $(TARGET).3dsx
+ifeq ($(strip $(CPPFILES)),)
+	export LD	:=	$(CC)
+else
+	export LD	:=	$(CXX)
+endif
 
-$(TARGET).3dsx: $(TARGET).elf
+export OFILES_SOURCES := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+export OFILES := $(OFILES_SOURCES)
+
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+					-I$(CURDIR)/$(BUILD)
+
+.PHONY: $(BUILD) clean all
+
+all: $(BUILD)
+
+$(BUILD):
+	@[ -d $@ ] || mkdir -p $@
+	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).3dsx $(TARGET).elf
+	@rm -fr $(BUILD) $(TARGET).3dsx $(OUTPUT).smdh $(TARGET).elf
 
 else
 
-DEPENDS := $(OFILES:.o=.d)
+DEPENDS	:=	$(OFILES:.o=.d)
 
-$(OUTPUT).elf: $(OFILES)
+$(OUTPUT).3dsx	:	$(OUTPUT).elf
+
+$(OUTPUT).elf	:	$(OFILES)
 
 -include $(DEPENDS)
 
