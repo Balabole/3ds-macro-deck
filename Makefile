@@ -38,6 +38,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
+LIBDIRS	:= $(PORTLIBS) $(CTRULIB)
 LIBS	:= -lctru -lm
 
 # INTERNALS
@@ -69,6 +70,8 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
 					-I$(CURDIR)/$(BUILD)
 
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
 .PHONY: $(BUILD) clean all
 
 all: $(BUILD)
@@ -88,6 +91,7 @@ DEPENDS	:=	$(OFILES:.o=.d)
 $(OUTPUT).3dsx	:	$(OUTPUT).elf
 
 $(OUTPUT).elf	:	$(OFILES)
+	$(LD) $(LDFLAGS) $(OFILES) $(LIBPATHS) $(LIBS) -o $@
 
 -include $(DEPENDS)
 
